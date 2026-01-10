@@ -1,0 +1,2 @@
+-   [x] Set up GitHub Pages
+-   [ ] What can I do with GitHub Actions?
