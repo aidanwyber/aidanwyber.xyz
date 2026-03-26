@@ -2,76 +2,153 @@
 
 import 'p5';
 import { extinctionMix, type RGBColor } from './extinction';
+import {
+	conjugateQuaternion,
+	IDENTITY_QUATERNION,
+	quaternionFromYawPitch,
+	quaternionToAxisAngle,
+	slerpQuaternion,
+	type Quaternion,
+} from './quaternion';
 import './style.css';
 
 const app = document.querySelector<HTMLDivElement>('#app');
-const skyColor: RGBColor = [8, 12, 20];
-const warmAccent: RGBColor = [255, 118, 91];
-const coolAccent: RGBColor = [24, 121, 255];
-const beamColor: RGBColor = [245, 247, 251];
+const skyColor: RGBColor = [228, 236, 244];
+const shadowColor: RGBColor = [34, 43, 56];
+const accentColor: RGBColor = [255, 138, 92];
+const cameraDistance = 920;
+const gridRadius = 3;
+const gridSpacing = 170;
+const boxSize = 26;
+const lookSensitivity = 0.006;
+const pitchLimit = 1.12;
+
+let yawTarget = 0;
+let pitchTarget = 0;
+let currentOrientation: Quaternion = IDENTITY_QUATERNION;
+let targetOrientation: Quaternion = IDENTITY_QUATERNION;
 
 if (!app) {
 	throw new Error('App root not found');
 }
 
-app.innerHTML = `
-  <div class="viewport-shell">
-    <div class="viewport-label">
-      <span>Main Explorer</span>
-      <span>p5 global mode</span>
-    </div>
-  </div>
-`;
+app.innerHTML = '';
+
+function updateTargetOrientation() {
+	if (!mouseIsPressed) {
+		return;
+	}
+
+	const deltaX = mouseX - pmouseX;
+	const deltaY = mouseY - pmouseY;
+
+	yawTarget -= deltaX * lookSensitivity;
+	pitchTarget = constrain(
+		pitchTarget - deltaY * lookSensitivity,
+		-pitchLimit,
+		pitchLimit,
+	);
+
+	targetOrientation = quaternionFromYawPitch(yawTarget, pitchTarget);
+}
+
+function drawBoxGrid() {
+	for (let xIndex = -gridRadius; xIndex <= gridRadius; xIndex += 1) {
+		for (let yIndex = -gridRadius; yIndex <= gridRadius; yIndex += 1) {
+			for (let zIndex = -gridRadius; zIndex <= gridRadius; zIndex += 1) {
+				const x = xIndex * gridSpacing;
+				const y = yIndex * gridSpacing;
+				const z = zIndex * gridSpacing;
+				const distanceFromCamera = Math.hypot(x, y, cameraDistance - z);
+				const baseColor: RGBColor = [
+					map(xIndex, -gridRadius, gridRadius, 68, 226),
+					map(yIndex, -gridRadius, gridRadius, 92, 208),
+					map(zIndex, -gridRadius, gridRadius, 210, 96),
+				];
+				const boxTint = extinctionMix(
+					baseColor,
+					skyColor,
+					distanceFromCamera,
+					0.00155,
+					[1.06, 0.96, 0.84],
+				);
+
+				push();
+				{
+					translate(x, y, z);
+					ambientMaterial(boxTint[0], boxTint[1], boxTint[2]);
+					box(boxSize, boxSize, boxSize);
+				}
+				pop();
+			}
+		}
+	}
+}
+
+function drawCrosshair() {
+	push();
+	resetMatrix();
+	ortho(-width / 2, width / 2, -height / 2, height / 2, -1000, 1000);
+	stroke(0, 13);
+	strokeWeight(1);
+	line(-8, 0, 8, 0);
+	line(0, -8, 0, 8);
+	pop();
+}
 
 window.setup = () => {
-	const canvas = createCanvas(windowWidth, windowHeight);
+	const canvas = createCanvas(windowWidth, windowHeight, WEBGL);
 	canvas.parent(app);
+	setAttributes('antialias', true);
 
 	noStroke();
+	perspective(PI / 3, width / height, 1, 5000);
 };
 
 window.draw = () => {
+	updateTargetOrientation();
+	currentOrientation = slerpQuaternion(
+		currentOrientation,
+		targetOrientation,
+		0.12,
+	);
+
 	background(...skyColor);
+	perspective(PI / 3, width / height, 1, 5000);
+	camera(0, 0, cameraDistance, 0, 0, 0, 0, 1, 0);
 
-	const glow = 50 + sin(frameCount * 0.02) * 20;
-	const coolGlow = extinctionMix(coolAccent, skyColor, 180, 0.0022);
-	fill(coolGlow[0], coolGlow[1], coolGlow[2], 28);
-	circle(width * 0.35, height * 0.4, min(width, height) * 0.7 + glow);
-
-	const warmGlow = extinctionMix(warmAccent, skyColor, 120, 0.0026);
-	fill(warmGlow[0], warmGlow[1], warmGlow[2], 32);
-	circle(width * 0.72, height * 0.62, min(width, height) * 0.45 - glow * 0.4);
-
-	const trackerDepth = map(mouseY, 0, height, 20, 500);
-	const trackerTint = extinctionMix(
-		warmAccent,
-		skyColor,
-		trackerDepth,
-		0.0024,
+	push();
+	const viewRotation = quaternionToAxisAngle(
+		conjugateQuaternion(currentOrientation),
 	);
-	const trackerHighlight = extinctionMix(
-		beamColor,
-		skyColor,
-		trackerDepth * 0.35,
-		0.0012,
-	);
-	const haloSize = 42 + sin(frameCount * 0.08) * 3;
+
+	if (viewRotation.angle > 0.0001) {
+		rotate(viewRotation.angle, [...viewRotation.axis]);
+	}
+
+	ambientLight(112, 118, 130);
+	directionalLight(255, 244, 232, -0.45, 0.2, -1);
+	directionalLight(132, 168, 224, 0.35, -0.25, -0.9);
+	pointLight(...accentColor, 0, 0, cameraDistance * 0.45);
 
 	push();
 	noFill();
-	stroke(trackerHighlight[0], trackerHighlight[1], trackerHighlight[2], 180);
-	strokeWeight(2);
-	circle(mouseX, mouseY, haloSize);
-
-	noStroke();
-	fill(trackerTint[0], trackerTint[1], trackerTint[2], 230);
-	circle(mouseX, mouseY, 18);
-
-	fill(255, 255, 255, 245);
-	circle(mouseX, mouseY, 5);
+	stroke(...shadowColor, 38);
+	strokeWeight(1);
+	box(
+		gridRadius * gridSpacing * 2.2,
+		gridRadius * gridSpacing * 2.2,
+		gridRadius * gridSpacing * 2.2,
+	);
 	pop();
+
+	drawBoxGrid();
+	pop();
+
+	drawCrosshair();
 };
 
 window.windowResized = () => {
 	resizeCanvas(windowWidth, windowHeight);
+	perspective(PI / 3, width / height, 1, 5000);
 };

@@ -1,12 +1,6 @@
 :root {
-	color: #f5f7fb;
-	background:
-		radial-gradient(
-			circle at top,
-			rgba(54, 109, 255, 0.22),
-			transparent 40%
-		),
-		linear-gradient(180deg, #0b1020 0%, #04070f 100%);
+	color: #222b38;
+	background: linear-gradient(180deg, #f7f9fc 0%, #e7edf4 100%);
 	font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
 	font-synthesis: none;
 	text-rendering: optimizeLegibility;
@@ -26,44 +20,13 @@ body {
 }
 
 #app {
-  position: relative;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-}
-
-.viewport-shell {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
+	position: relative;
+	width: 100vw;
+	height: 100vh;
+	overflow: hidden;
 }
 
 canvas {
-  display: block;
-}
-
-.viewport-label {
-  position: absolute;
-  top: clamp(1rem, 2vw, 1.5rem);
-  left: clamp(1rem, 2vw, 1.5rem);
-  z-index: 1;
-	display: grid;
-	gap: 0.2rem;
-	padding: 0.75rem 0.9rem;
-	border: 1px solid rgba(255, 255, 255, 0.14);
-	border-radius: 0.9rem;
-	background: rgba(8, 12, 20, 0.38);
-	backdrop-filter: blur(16px);
-	letter-spacing: 0.08em;
-	text-transform: uppercase;
-	pointer-events: none;
-}
-
-.viewport-label span:first-child {
-	font-size: 0.75rem;
-	opacity: 0.65;
-}
-
-.viewport-label span:last-child {
-	font-size: clamp(0.8rem, 1vw, 0.95rem);
+	display: block;
+	touch-action: none;
 }
