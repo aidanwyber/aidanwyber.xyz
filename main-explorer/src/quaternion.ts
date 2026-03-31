@@ -103,6 +103,30 @@ export function conjugateQuaternion(quaternion: Quaternion): Quaternion {
 	};
 }
 
+export function rotateVectorByQuaternion(
+	quaternion: Quaternion,
+	vector: readonly [number, number, number],
+): readonly [number, number, number] {
+	const normalized = normalizeQuaternion(quaternion);
+	const qVector = [normalized.x, normalized.y, normalized.z] as const;
+	const uv = [
+		qVector[1] * vector[2] - qVector[2] * vector[1],
+		qVector[2] * vector[0] - qVector[0] * vector[2],
+		qVector[0] * vector[1] - qVector[1] * vector[0],
+	] as const;
+	const uuv = [
+		qVector[1] * uv[2] - qVector[2] * uv[1],
+		qVector[2] * uv[0] - qVector[0] * uv[2],
+		qVector[0] * uv[1] - qVector[1] * uv[0],
+	] as const;
+
+	return [
+		vector[0] + 2 * (normalized.w * uv[0] + uuv[0]),
+		vector[1] + 2 * (normalized.w * uv[1] + uuv[1]),
+		vector[2] + 2 * (normalized.w * uv[2] + uuv[2]),
+	];
+}
+
 export function slerpQuaternion(
 	from: Quaternion,
 	to: Quaternion,

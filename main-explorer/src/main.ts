@@ -7,6 +7,7 @@ import {
 	IDENTITY_QUATERNION,
 	quaternionFromYawPitch,
 	quaternionToAxisAngle,
+	rotateVectorByQuaternion,
 	slerpQuaternion,
 	type Quaternion,
 } from './quaternion';
@@ -14,9 +15,9 @@ import './style.css';
 
 const app = document.querySelector<HTMLDivElement>('#app');
 const skyColor: RGBColor = [228, 236, 244];
-const shadowColor: RGBColor = [34, 43, 56];
-const accentColor: RGBColor = [255, 138, 92];
+const outlineColor: RGBColor = [0, 0, 0];
 const cameraDistance = 920;
+const fovDegrees = 60;
 const gridRadius = 3;
 const gridSpacing = 170;
 const boxSize = 26;
@@ -33,6 +34,10 @@ if (!app) {
 }
 
 app.innerHTML = '';
+
+function applyCameraPerspective() {
+	perspective(radians(fovDegrees), width / height, 1, 5000);
+}
 
 function updateTargetOrientation() {
 	if (!mouseIsPressed) {
@@ -52,14 +57,23 @@ function updateTargetOrientation() {
 	targetOrientation = quaternionFromYawPitch(yawTarget, pitchTarget);
 }
 
-function drawBoxGrid() {
+function drawBoxGrid(viewQuaternion: Quaternion) {
 	for (let xIndex = -gridRadius; xIndex <= gridRadius; xIndex += 1) {
 		for (let yIndex = -gridRadius; yIndex <= gridRadius; yIndex += 1) {
 			for (let zIndex = -gridRadius; zIndex <= gridRadius; zIndex += 1) {
 				const x = xIndex * gridSpacing;
 				const y = yIndex * gridSpacing;
 				const z = zIndex * gridSpacing;
-				const distanceFromCamera = Math.hypot(x, y, cameraDistance - z);
+				const viewPosition = rotateVectorByQuaternion(viewQuaternion, [
+					x,
+					y,
+					z,
+				]);
+				const distanceFromCamera = Math.hypot(
+					viewPosition[0],
+					viewPosition[1],
+					cameraDistance - viewPosition[2],
+				);
 				const baseColor: RGBColor = [
 					map(xIndex, -gridRadius, gridRadius, 68, 226),
 					map(yIndex, -gridRadius, gridRadius, 92, 208),
@@ -72,11 +86,20 @@ function drawBoxGrid() {
 					0.00155,
 					[1.06, 0.96, 0.84],
 				);
+				const outlineTint = extinctionMix(
+					outlineColor,
+					skyColor,
+					distanceFromCamera,
+					0.00155,
+					[1.06, 0.96, 0.84],
+				);
 
 				push();
 				{
 					translate(x, y, z);
-					ambientMaterial(boxTint[0], boxTint[1], boxTint[2]);
+					fill(boxTint[0], boxTint[1], boxTint[2]);
+					stroke(outlineTint[0], outlineTint[1], outlineTint[2], 180);
+					strokeWeight(1);
 					box(boxSize, boxSize, boxSize);
 				}
 				pop();
@@ -102,7 +125,7 @@ window.setup = () => {
 	setAttributes('antialias', true);
 
 	noStroke();
-	perspective(PI / 3, width / height, 1, 5000);
+	applyCameraPerspective();
 };
 
 window.draw = () => {
@@ -114,26 +137,29 @@ window.draw = () => {
 	);
 
 	background(...skyColor);
-	perspective(PI / 3, width / height, 1, 5000);
+	applyCameraPerspective();
 	camera(0, 0, cameraDistance, 0, 0, 0, 0, 1, 0);
 
 	push();
-	const viewRotation = quaternionToAxisAngle(
-		conjugateQuaternion(currentOrientation),
-	);
+	const viewQuaternion = conjugateQuaternion(currentOrientation);
+	const viewRotation = quaternionToAxisAngle(viewQuaternion);
 
 	if (viewRotation.angle > 0.0001) {
 		rotate(viewRotation.angle, [...viewRotation.axis]);
 	}
 
-	ambientLight(112, 118, 130);
-	directionalLight(255, 244, 232, -0.45, 0.2, -1);
-	directionalLight(132, 168, 224, 0.35, -0.25, -0.9);
-	pointLight(...accentColor, 0, 0, cameraDistance * 0.45);
+	noLights();
 
 	push();
 	noFill();
-	stroke(...shadowColor, 38);
+	const frameTint = extinctionMix(
+		outlineColor,
+		skyColor,
+		cameraDistance,
+		0.00155,
+		[1.06, 0.96, 0.84],
+	);
+	stroke(frameTint[0], frameTint[1], frameTint[2], 110);
 	strokeWeight(1);
 	box(
 		gridRadius * gridSpacing * 2.2,
@@ -142,7 +168,7 @@ window.draw = () => {
 	);
 	pop();
 
-	drawBoxGrid();
+	drawBoxGrid(viewQuaternion);
 	pop();
 
 	drawCrosshair();
@@ -150,5 +176,5 @@ window.draw = () => {
 
 window.windowResized = () => {
 	resizeCanvas(windowWidth, windowHeight);
-	perspective(PI / 3, width / height, 1, 5000);
+	applyCameraPerspective();
 };
