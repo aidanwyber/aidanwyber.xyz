@@ -49,7 +49,7 @@ function updateTargetOrientation() {
 
 	yawTarget -= deltaX * lookSensitivity;
 	pitchTarget = constrain(
-		pitchTarget - deltaY * lookSensitivity,
+		pitchTarget + deltaY * lookSensitivity,
 		-pitchLimit,
 		pitchLimit,
 	);
